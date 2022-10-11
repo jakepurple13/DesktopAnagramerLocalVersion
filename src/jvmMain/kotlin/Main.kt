@@ -63,8 +63,18 @@ fun App(
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 fun main() = application {
-    MaterialTheme(darkColors()) {
-        androidx.compose.material3.MaterialTheme(darkColorScheme()) {
+    MaterialTheme(
+        darkColors(
+            primary = Color(0xff90CAF9),
+            secondary = Color(0xff90CAF9)
+        )
+    ) {
+        androidx.compose.material3.MaterialTheme(
+            darkColorScheme(
+                primary = Color(0xff90CAF9),
+                secondary = Color(0xff90CAF9)
+            )
+        ) {
             val scope: CoroutineScope = rememberCoroutineScope()
             val vm: WordViewModel = remember { WordViewModel(scope) }
             val snackbarHostState = remember { SnackbarHostState() }
