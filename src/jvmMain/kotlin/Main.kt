@@ -56,7 +56,7 @@ fun App(
 ) {
     MaterialTheme(darkColors()) {
         androidx.compose.material3.MaterialTheme(darkColorScheme()) {
-            WordUi(scope, vm)
+            WordUi(scope, vm, snackbarHostState)
         }
     }
 }
