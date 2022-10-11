@@ -795,7 +795,7 @@ class WordViewModel(val viewModelScope: CoroutineScope) {
     fun useHint() {
         if (hints > 0) {
             if (usedHint) {
-                hints - 1
+                hints--
             }
             usedHint = true
             mainLetters
