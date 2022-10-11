@@ -6,17 +6,20 @@ import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.material.*
-import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.rememberDrawerState
@@ -32,8 +35,7 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.application
+import androidx.compose.ui.window.*
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -44,6 +46,8 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.jetbrains.skiko.OS
+import org.jetbrains.skiko.hostOs
 import java.util.*
 import androidx.compose.material3.MaterialTheme as M3MaterialTheme
 
@@ -54,41 +58,194 @@ fun App(
     vm: WordViewModel,
     snackbarHostState: SnackbarHostState
 ) {
+    WordUi(scope, vm, snackbarHostState)
+}
+
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+fun main() = application {
     MaterialTheme(darkColors()) {
         androidx.compose.material3.MaterialTheme(darkColorScheme()) {
-            WordUi(scope, vm, snackbarHostState)
+            val scope: CoroutineScope = rememberCoroutineScope()
+            val vm: WordViewModel = remember { WordViewModel(scope) }
+            val snackbarHostState = remember { SnackbarHostState() }
+            val state = rememberWindowState()
+            Window(
+                state = state,
+                undecorated = true,
+                transparent = true,
+                onCloseRequest = ::exitApplication,
+                onPreviewKeyEvent = {
+                    if (it.type == KeyEventType.KeyUp) {
+                        when (it.key) {
+                            Key.Backspace -> vm.updateGuess(vm.wordGuess.dropLast(1))
+
+                            Key.Enter -> {
+                                scope.launch {
+                                    val message = vm.guess {}
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    snackbarHostState.showSnackbar(
+                                        message,
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            }
+
+                            else -> it.awtEventOrNull?.keyChar?.let { c -> vm.updateGuess("${vm.wordGuess}$c") }
+                        }
+                    }
+                    true
+                }
+            ) {
+                androidx.compose.material3.Surface(
+                    shape = when (hostOs) {
+                        OS.Linux -> RoundedCornerShape(8.dp)
+                        OS.Windows -> RectangleShape
+                        OS.MacOS -> RoundedCornerShape(8.dp)
+                        else -> RoundedCornerShape(8.dp)
+                    },
+                    modifier = Modifier.animateContentSize()
+                ) {
+                    androidx.compose.material3.Scaffold(
+                        topBar = {
+                            Column {
+                                WindowDraggableArea(
+                                    modifier = Modifier.combinedClickable(
+                                        indication = null,
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        onClick = {},
+                                        onDoubleClick = {
+                                            state.placement =
+                                                if (state.placement != WindowPlacement.Maximized) {
+                                                    WindowPlacement.Maximized
+                                                } else {
+                                                    WindowPlacement.Floating
+                                                }
+                                        }
+                                    )
+                                ) {
+                                    TopAppBar(
+                                        backgroundColor = M3MaterialTheme.colorScheme.surface,
+                                        elevation = 0.dp,
+                                    ) {
+                                        when (hostOs) {
+                                            OS.Linux -> LinuxTopBar(state)
+                                            OS.Windows -> WindowsTopBar(state)
+                                            OS.MacOS -> MacOsTopBar(state)
+                                            else -> {}
+                                        }
+                                    }
+                                }
+                                Divider(color = M3MaterialTheme.colorScheme.onSurface)
+                            }
+                        },
+                        containerColor = M3MaterialTheme.colorScheme.surface
+                    ) { padding ->
+                        androidx.compose.material3.Surface(modifier = Modifier.padding(padding)) {
+                            App(scope, vm, snackbarHostState)
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
-fun main() = application {
-    val scope: CoroutineScope = rememberCoroutineScope()
-    val vm: WordViewModel = remember { WordViewModel(scope) }
-    val snackbarHostState = remember { SnackbarHostState() }
-    Window(
-        onCloseRequest = ::exitApplication,
-        onPreviewKeyEvent = {
-            if (it.type == KeyEventType.KeyUp) {
-                when (it.key) {
-                    Key.Backspace -> vm.updateGuess(vm.wordGuess.dropLast(1))
-                    Key.Enter -> {
-                        scope.launch {
-                            val message = vm.guess {}
-                            snackbarHostState.currentSnackbarData?.dismiss()
-                            snackbarHostState.showSnackbar(
-                                message,
-                                duration = SnackbarDuration.Short
-                            )
-                        }
-                    }
-
-                    else -> it.awtEventOrNull?.keyChar?.let { c -> vm.updateGuess("${vm.wordGuess}$c") }
-                }
+@Composable
+private fun ApplicationScope.LinuxTopBar(state: WindowState) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            androidx.compose.material3.IconButton(onClick = ::exitApplication) {
+                androidx.compose.material3.Icon(
+                    Icons.Default.Close,
+                    null
+                )
             }
-            true
+            androidx.compose.material3.IconButton(onClick = {
+                state.isMinimized = !state.isMinimized
+            }) { androidx.compose.material3.Icon(Icons.Default.Minimize, null) }
+            androidx.compose.material3.IconButton(
+                onClick = {
+                    state.placement = if (state.placement != WindowPlacement.Maximized) WindowPlacement.Maximized
+                    else WindowPlacement.Floating
+                }
+            ) { androidx.compose.material3.Icon(Icons.Default.Maximize, null) }
         }
-    ) { App(scope, vm, snackbarHostState) }
+
+        Text(
+            "Anagramer",
+            modifier = Modifier.align(Alignment.CenterStart),
+        )
+    }
+}
+
+@Composable
+private fun ApplicationScope.WindowsTopBar(state: WindowState) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            androidx.compose.material3.IconButton(onClick = ::exitApplication) {
+                androidx.compose.material3.Icon(
+                    Icons.Default.Close,
+                    null
+                )
+            }
+            androidx.compose.material3.IconButton(onClick = {
+                state.isMinimized = !state.isMinimized
+            }) { androidx.compose.material3.Icon(Icons.Default.Minimize, null) }
+            androidx.compose.material3.IconButton(
+                onClick = {
+                    state.placement = if (state.placement != WindowPlacement.Maximized) WindowPlacement.Maximized
+                    else WindowPlacement.Floating
+                }
+            ) { androidx.compose.material3.Icon(Icons.Default.Maximize, null) }
+        }
+
+        Text(
+            "Anagramer",
+            modifier = Modifier.align(Alignment.Center),
+        )
+    }
+}
+
+@Composable
+private fun ApplicationScope.MacOsTopBar(state: WindowState) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.align(Alignment.CenterStart),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            androidx.compose.material3.IconButton(onClick = ::exitApplication) {
+                androidx.compose.material3.Icon(
+                    Icons.Default.Close,
+                    null
+                )
+            }
+            androidx.compose.material3.IconButton(onClick = {
+                state.isMinimized = !state.isMinimized
+            }) { androidx.compose.material3.Icon(Icons.Default.Minimize, null) }
+            androidx.compose.material3.IconButton(
+                onClick = {
+                    state.placement = if (state.placement != WindowPlacement.Fullscreen) WindowPlacement.Fullscreen
+                    else WindowPlacement.Floating
+                }
+            ) {
+                androidx.compose.material3.Icon(
+                    if (state.placement != WindowPlacement.Fullscreen) Icons.Default.Fullscreen else Icons.Default.FullscreenExit,
+                    null
+                )
+            }
+        }
+
+        Text(
+            "Anagramer",
+            modifier = Modifier.align(Alignment.Center),
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
