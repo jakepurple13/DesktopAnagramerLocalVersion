@@ -129,7 +129,6 @@ fun WordUi(
             bottomBar = {
                 BottomBar(
                     vm = vm,
-                    gridState = gridState,
                     snackbarHostState = snackbarHostState
                 )
             },
@@ -240,7 +239,6 @@ fun WordContent(
 @Composable
 fun BottomBar(
     vm: WordViewModel,
-    gridState: LazyListState,
     snackbarHostState: SnackbarHostState
 ) {
     val scope = rememberCoroutineScope()
@@ -333,8 +331,7 @@ fun DefinitionDrawer(vm: WordViewModel) {
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            definition.word.orEmpty()
-                                .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                            definition.word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
                         )
                     },
                     scrollBehavior = scrollBehavior
@@ -346,15 +343,13 @@ fun DefinitionDrawer(vm: WordViewModel) {
                 contentPadding = padding,
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                items(definition.meanings.orEmpty()) {
+                item {
                     Card {
                         ListItem(
-                            text = { Text(it.partOfSpeech.orEmpty()) },
+                            text = { Text(definition.word) },
                             secondaryText = {
                                 Column {
-                                    it.definitions?.forEach { d ->
-                                        Text(d.definition.orEmpty())
-                                    }
+                                    Text(definition.definition)
                                 }
                             }
                         )
@@ -546,8 +541,8 @@ class WordViewModel(val viewModelScope: CoroutineScope) {
     var wordGuess by mutableStateOf("")
     private var prevGuess = ""
 
-    var definition by mutableStateOf<BaseDefinition?>(null)
-    private val definitionMap = mutableMapOf<String, BaseDefinition>()
+    var definition by mutableStateOf<Definition?>(null)
+    private val definitionMap = mutableMapOf<String, Definition>()
 
     var error: String? by mutableStateOf(null)
 
@@ -689,16 +684,16 @@ class WordViewModel(val viewModelScope: CoroutineScope) {
             } else {
                 isLoading = true
                 withContext(Dispatchers.IO) {
-                    /*definition = withTimeoutOrNull(5000) { getWordDefinition(word) }?.fold(
+                    definition = withTimeoutOrNull(5000) { getWordDefinition(word) }?.fold(
                         onSuccess = { definition ->
                             error = null
-                            definition.firstOrNull()?.also {
+                            definition?.also {
                                 onComplete()
                                 definitionMap[word] = it
                             }
                         },
                         onFailure = { null }
-                    )*/
+                    )
                     if (definition == null) error = "Something went Wrong"
                 }
                 isLoading = false
@@ -711,12 +706,9 @@ suspend fun getLetters() = runCatching {
     getApi<Word>("http://0.0.0.0:8080/randomWord/7?minimumSize=4")
 }
 
-/*suspend fun getWordDefinition(word: String) = runCatching {
-    getApiResponse("https://api.dictionaryapi.dev/api/v2/entries/en/$word")
-        .bodyAsText()
-        .fromJson<List<BaseDefinition>>()
-        .orEmpty()
-}*/
+suspend fun getWordDefinition(word: String) = runCatching {
+    getApi<Definition>("http://0.0.0.0:8080/wordDefinition/$word")
+}
 
 suspend inline fun <reified T> getApi(
     url: String,
@@ -738,32 +730,11 @@ suspend inline fun <reified T> getApi(
     return response.body<T>()
 }
 
-suspend inline fun getApiResponse(
-    url: String,
-    noinline headers: HeadersBuilder.() -> Unit = {}
-): HttpResponse = HttpClient().get(url) { headers(headers) }
-
 @Serializable
 data class Word(val word: String, val anagrams: List<String>)
 
-data class BaseDefinition(
-    val word: String?,
-    val phonetic: String?,
-    val phonetics: List<Phonetics>?,
-    val origin: String?,
-    val meanings: List<Meanings>?
-)
-
-data class Definitions(
-    val definition: String?,
-    val example: String?,
-    val synonyms: List<Any>?,
-    val antonyms: List<Any>?
-)
-
-data class Meanings(val partOfSpeech: String?, val definitions: List<Definitions>?)
-
-data class Phonetics(val text: String?, val audio: String?)
+@Serializable
+data class Definition(val word: String, val definition: String)
 
 val Emerald = Color(0xFF2ecc71)
 val Sunflower = Color(0xFFf1c40f)
