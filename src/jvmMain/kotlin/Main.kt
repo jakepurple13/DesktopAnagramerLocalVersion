@@ -332,13 +332,13 @@ fun WordContent(
         Box(
             modifier = Modifier.fillMaxWidth()
         ) {
-            FilledTonalButton(
+            androidx.compose.material3.OutlinedButton(
                 onClick = vm::useHint,
                 enabled = vm.hintCount > 0,
                 modifier = Modifier.align(Alignment.CenterStart)
             ) { Text("?" + vm.hintCount.toString()) }
 
-            FilledTonalButton(
+            androidx.compose.material3.OutlinedButton(
                 onClick = { vm.showScoreInfo = true },
                 enabled = vm.score > 0,
                 modifier = Modifier.align(Alignment.Center)
@@ -426,7 +426,7 @@ fun BottomBar(
                     }
                 }
 
-                FilledTonalButton(
+                androidx.compose.material3.OutlinedButton(
                     onClick = vm::shuffle,
                 ) { Icon(Icons.Default.Shuffle, null) }
             }
@@ -449,7 +449,7 @@ fun BottomBar(
                     }
                 }
 
-                FilledTonalButton(
+                androidx.compose.material3.OutlinedButton(
                     onClick = { vm.wordGuess = "" }
                 ) { Icon(Icons.Default.Clear, null, tint = Alizarin) }
             }
@@ -461,11 +461,11 @@ fun BottomBar(
                     .animateContentSize()
                     .fillMaxWidth()
             ) {
-                FilledTonalButton(
+                androidx.compose.material3.OutlinedButton(
                     onClick = vm::bringBackWord
                 ) { Icon(Icons.Default.Undo, null) }
 
-                FilledTonalButton(
+                androidx.compose.material3.OutlinedButton(
                     onClick = {
                         scope.launch {
                             val message = vm.guess {}
