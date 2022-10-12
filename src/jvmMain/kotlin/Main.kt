@@ -79,6 +79,7 @@ fun main() = application {
             val vm: WordViewModel = remember { WordViewModel(scope) }
             val snackbarHostState = remember { SnackbarHostState() }
             val state = rememberWindowState()
+
             Window(
                 state = state,
                 undecorated = true,
@@ -138,9 +139,9 @@ fun main() = application {
                                         elevation = 0.dp,
                                     ) {
                                         when (hostOs) {
-                                            OS.Linux -> LinuxTopBar(state)
-                                            OS.Windows -> WindowsTopBar(state)
-                                            OS.MacOS -> MacOsTopBar(state)
+                                            OS.Linux -> LinuxTopBar(state, ::exitApplication)
+                                            OS.Windows -> WindowsTopBar(state, ::exitApplication)
+                                            OS.MacOS -> MacOsTopBar(state, ::exitApplication)
                                             else -> {}
                                         }
                                     }
@@ -156,18 +157,20 @@ fun main() = application {
                     }
                 }
             }
+            if (vm.showHighScores) ShowHighScores(vm)
+            if (vm.showSubmitScore) GameOver(vm)
         }
     }
 }
 
 @Composable
-private fun ApplicationScope.LinuxTopBar(state: WindowState) {
+private fun ApplicationScope.LinuxTopBar(state: WindowState, onExit: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.align(Alignment.CenterEnd),
             horizontalArrangement = Arrangement.Start
         ) {
-            androidx.compose.material3.IconButton(onClick = ::exitApplication) {
+            androidx.compose.material3.IconButton(onClick = onExit) {
                 androidx.compose.material3.Icon(
                     Icons.Default.Close,
                     null
@@ -192,13 +195,13 @@ private fun ApplicationScope.LinuxTopBar(state: WindowState) {
 }
 
 @Composable
-private fun ApplicationScope.WindowsTopBar(state: WindowState) {
+private fun ApplicationScope.WindowsTopBar(state: WindowState, onExit: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.align(Alignment.CenterEnd),
             horizontalArrangement = Arrangement.Start
         ) {
-            androidx.compose.material3.IconButton(onClick = ::exitApplication) {
+            androidx.compose.material3.IconButton(onClick = onExit) {
                 androidx.compose.material3.Icon(
                     Icons.Default.Close,
                     null
@@ -223,13 +226,13 @@ private fun ApplicationScope.WindowsTopBar(state: WindowState) {
 }
 
 @Composable
-private fun ApplicationScope.MacOsTopBar(state: WindowState) {
+private fun ApplicationScope.MacOsTopBar(state: WindowState, onExit: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.align(Alignment.CenterStart),
             horizontalArrangement = Arrangement.Start
         ) {
-            androidx.compose.material3.IconButton(onClick = ::exitApplication) {
+            androidx.compose.material3.IconButton(onClick = onExit) {
                 androidx.compose.material3.Icon(
                     Icons.Default.Close,
                     null
@@ -314,6 +317,203 @@ fun WordUi(
     LoadingDialog(showLoadingDialog = vm.isLoading)
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
+@Composable
+fun ApplicationScope.ShowHighScores(vm: WordViewModel) {
+    val state = rememberWindowState()
+    Window(
+        state = state,
+        undecorated = true,
+        transparent = true,
+        onCloseRequest = { vm.showHighScores = false },
+    ) {
+        androidx.compose.material3.Surface(
+            shape = when (hostOs) {
+                OS.Linux -> RoundedCornerShape(8.dp)
+                OS.Windows -> RectangleShape
+                OS.MacOS -> RoundedCornerShape(8.dp)
+                else -> RoundedCornerShape(8.dp)
+            },
+            modifier = Modifier.animateContentSize()
+        ) {
+            androidx.compose.material3.Scaffold(
+                topBar = {
+                    Column {
+                        WindowDraggableArea(
+                            modifier = Modifier.combinedClickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                onClick = {},
+                                onDoubleClick = {
+                                    state.placement =
+                                        if (state.placement != WindowPlacement.Maximized) {
+                                            WindowPlacement.Maximized
+                                        } else {
+                                            WindowPlacement.Floating
+                                        }
+                                }
+                            )
+                        ) {
+                            TopAppBar(
+                                backgroundColor = M3MaterialTheme.colorScheme.surface,
+                                elevation = 0.dp,
+                            ) {
+                                when (hostOs) {
+                                    OS.Linux -> LinuxTopBar(state) { vm.showHighScores = false }
+                                    OS.Windows -> WindowsTopBar(state) { vm.showHighScores = false }
+                                    OS.MacOS -> MacOsTopBar(state) { vm.showHighScores = false }
+                                    else -> {}
+                                }
+                            }
+                        }
+                        Divider(color = M3MaterialTheme.colorScheme.onSurface)
+                    }
+                },
+                containerColor = M3MaterialTheme.colorScheme.surface
+            ) { padding ->
+                androidx.compose.material3.Surface(modifier = Modifier.padding(padding)) {
+                    var retry by remember { mutableStateOf(0) }
+                    val scores by highScores(retry, vm.showSubmitScore)
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        Crossfade(scores) { target ->
+                            when (target) {
+                                is Result.Loading -> {
+                                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                                }
+
+                                is Result.Success<Scores> -> {
+                                    LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        stickyHeader { SmallTopAppBar(title = { Text("HighScores") }) }
+
+                                        itemsIndexed(target.value.list) { index, item ->
+                                            Card {
+                                                ListItem(
+                                                    icon = { Text("$index.") },
+                                                    text = { Text(item.name) },
+                                                    trailing = { Text(item.score.toString()) }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                is Result.Error -> {
+                                    androidx.compose.material3.OutlinedButton(
+                                        onClick = { retry++ },
+                                        modifier = Modifier.align(Alignment.Center)
+                                    ) { Text("Something went wrong. Please try again.") }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
+@Composable
+fun ApplicationScope.GameOver(vm: WordViewModel) {
+    val state = rememberWindowState()
+    Window(
+        state = state,
+        undecorated = true,
+        transparent = true,
+        onCloseRequest = { vm.showSubmitScore = false },
+    ) {
+        androidx.compose.material3.Surface(
+            shape = when (hostOs) {
+                OS.Linux -> RoundedCornerShape(8.dp)
+                OS.Windows -> RectangleShape
+                OS.MacOS -> RoundedCornerShape(8.dp)
+                else -> RoundedCornerShape(8.dp)
+            },
+            modifier = Modifier.animateContentSize()
+        ) {
+            androidx.compose.material3.Scaffold(
+                topBar = {
+                    Column {
+                        WindowDraggableArea(
+                            modifier = Modifier.combinedClickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                onClick = {},
+                                onDoubleClick = {
+                                    state.placement =
+                                        if (state.placement != WindowPlacement.Maximized) {
+                                            WindowPlacement.Maximized
+                                        } else {
+                                            WindowPlacement.Floating
+                                        }
+                                }
+                            )
+                        ) {
+                            TopAppBar(
+                                backgroundColor = M3MaterialTheme.colorScheme.surface,
+                                elevation = 0.dp,
+                            ) {
+                                when (hostOs) {
+                                    OS.Linux -> LinuxTopBar(state) { vm.showSubmitScore = false }
+                                    OS.Windows -> WindowsTopBar(state) { vm.showSubmitScore = false }
+                                    OS.MacOS -> MacOsTopBar(state) { vm.showSubmitScore = false }
+                                    else -> {}
+                                }
+                            }
+                        }
+                        Divider(color = M3MaterialTheme.colorScheme.onSurface)
+                    }
+                },
+                containerColor = M3MaterialTheme.colorScheme.surface,
+                bottomBar = {
+                    BottomAppBar {
+                        OutlinedTextField(
+                            value = vm.name,
+                            onValueChange = { vm.name = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            trailingIcon = {
+                                androidx.compose.material3.IconButton(onClick = vm::sendHighScore) {
+                                    Icon(Icons.Default.Send, null)
+                                }
+                            }
+                        )
+                    }
+                }
+            ) { padding ->
+                androidx.compose.material3.Surface(modifier = Modifier.padding(padding)) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Column {
+                            Text("Game Over!")
+                            Text("Final Score: ${vm.score}")
+                            Text("Do you want to submit it?")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun highScores(vararg key: Any?) = produceState<Result<Scores>>(Result.Loading, keys = key) {
+    value = Result.Loading
+    val response = withContext(Dispatchers.IO) { getHighScores().getOrNull() }
+    value = response?.let { Result.Success(it) } ?: Result.Error
+}
+
+sealed class Result<out R> {
+    class Success<out T>(val value: T) : Result<T>()
+    object Error : Result<Nothing>()
+    object Loading : Result<Nothing>()
+}
+
 @OptIn(
     ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalFoundationApi::class,
     ExperimentalMaterialApi::class
@@ -343,6 +543,11 @@ fun WordContent(
                 enabled = vm.score > 0,
                 modifier = Modifier.align(Alignment.Center)
             ) { Text("${animateIntAsState(vm.score).value} points") }
+
+            androidx.compose.material3.OutlinedButton(
+                onClick = { vm.showHighScores = true },
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) { Text("View HighScores") }
         }
         LazyVerticalGrid(
             state = gridState,
@@ -690,6 +895,10 @@ private fun CustomListItem(
 
 class WordViewModel(val viewModelScope: CoroutineScope) {
 
+    var showHighScores by mutableStateOf(false)
+    var showSubmitScore by mutableStateOf(false)
+    var name by mutableStateOf("")
+
     var shouldStartNewGame by mutableStateOf(false)
     var finishGame by mutableStateOf(false)
     var finishedGame by mutableStateOf(false)
@@ -742,6 +951,7 @@ class WordViewModel(val viewModelScope: CoroutineScope) {
 
     fun getWord() {
         viewModelScope.launch {
+            showSubmitScore = false
             shouldStartNewGame = false
             finishedGame = false
             isLoading = true
@@ -789,6 +999,16 @@ class WordViewModel(val viewModelScope: CoroutineScope) {
         wordGuesses.addAll(anagramWords)
         finishGame = false
         finishedGame = true
+        showSubmitScore = true
+    }
+
+    fun sendHighScore() {
+        viewModelScope.launch {
+            postHighScore(name, internalScore).fold(
+                onSuccess = { showSubmitScore = false },
+                onFailure = { it.printStackTrace() }
+            )
+        }
     }
 
     fun shuffle() {
@@ -877,6 +1097,14 @@ suspend fun getWordDefinition(word: String) = runCatching {
     getApi<Definition>("http://0.0.0.0:8080/wordDefinition/$word")
 }
 
+suspend fun getHighScores() = runCatching {
+    getApi<Scores>("http://0.0.0.0:8080/highScores")
+}
+
+suspend fun postHighScore(name: String, score: Int) = runCatching {
+    postApi<Scores>("http://0.0.0.0:8080/highScore/$name/$score")
+}
+
 suspend inline fun <reified T> getApi(
     url: String,
     noinline headers: HeadersBuilder.() -> Unit = {}
@@ -897,11 +1125,37 @@ suspend inline fun <reified T> getApi(
     return response.body<T>()
 }
 
+suspend inline fun <reified T> postApi(
+    url: String,
+    noinline headers: HeadersBuilder.() -> Unit = {}
+): T? {
+    val client = HttpClient {
+        install(ContentNegotiation) {
+            json(
+                Json {
+                    isLenient = true
+                    prettyPrint = true
+                    ignoreUnknownKeys = true
+                    coerceInputValues = true
+                }
+            )
+        }
+    }
+    val response: HttpResponse = client.post(url) { headers(headers) }
+    return response.body<T>()
+}
+
 @Serializable
 data class Word(val word: String, val anagrams: List<String>)
 
 @Serializable
 data class Definition(val word: String, val definition: String)
+
+@Serializable
+data class Scores(val list: List<HighScore>)
+
+@Serializable
+data class HighScore(val name: String, val score: Int)
 
 val Emerald = Color(0xFF2ecc71)
 val Sunflower = Color(0xFFf1c40f)
