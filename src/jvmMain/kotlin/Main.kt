@@ -44,8 +44,6 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.*
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import org.jetbrains.skiko.OS
 import org.jetbrains.skiko.hostOs
 import java.util.*
@@ -163,104 +161,6 @@ fun main() = application {
     }
 }
 
-@Composable
-private fun ApplicationScope.LinuxTopBar(state: WindowState, onExit: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.align(Alignment.CenterEnd),
-            horizontalArrangement = Arrangement.Start
-        ) {
-            androidx.compose.material3.IconButton(onClick = onExit) {
-                androidx.compose.material3.Icon(
-                    Icons.Default.Close,
-                    null
-                )
-            }
-            androidx.compose.material3.IconButton(onClick = {
-                state.isMinimized = !state.isMinimized
-            }) { androidx.compose.material3.Icon(Icons.Default.Minimize, null) }
-            androidx.compose.material3.IconButton(
-                onClick = {
-                    state.placement = if (state.placement != WindowPlacement.Maximized) WindowPlacement.Maximized
-                    else WindowPlacement.Floating
-                }
-            ) { androidx.compose.material3.Icon(Icons.Default.Maximize, null) }
-        }
-
-        Text(
-            "Anagramer",
-            modifier = Modifier.align(Alignment.CenterStart),
-        )
-    }
-}
-
-@Composable
-private fun ApplicationScope.WindowsTopBar(state: WindowState, onExit: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.align(Alignment.CenterEnd),
-            horizontalArrangement = Arrangement.Start
-        ) {
-            androidx.compose.material3.IconButton(onClick = onExit) {
-                androidx.compose.material3.Icon(
-                    Icons.Default.Close,
-                    null
-                )
-            }
-            androidx.compose.material3.IconButton(onClick = {
-                state.isMinimized = !state.isMinimized
-            }) { androidx.compose.material3.Icon(Icons.Default.Minimize, null) }
-            androidx.compose.material3.IconButton(
-                onClick = {
-                    state.placement = if (state.placement != WindowPlacement.Maximized) WindowPlacement.Maximized
-                    else WindowPlacement.Floating
-                }
-            ) { androidx.compose.material3.Icon(Icons.Default.Maximize, null) }
-        }
-
-        Text(
-            "Anagramer",
-            modifier = Modifier.align(Alignment.Center),
-        )
-    }
-}
-
-@Composable
-private fun ApplicationScope.MacOsTopBar(state: WindowState, onExit: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.align(Alignment.CenterStart),
-            horizontalArrangement = Arrangement.Start
-        ) {
-            androidx.compose.material3.IconButton(onClick = onExit) {
-                androidx.compose.material3.Icon(
-                    Icons.Default.Close,
-                    null
-                )
-            }
-            androidx.compose.material3.IconButton(onClick = {
-                state.isMinimized = !state.isMinimized
-            }) { androidx.compose.material3.Icon(Icons.Default.Minimize, null) }
-            androidx.compose.material3.IconButton(
-                onClick = {
-                    state.placement = if (state.placement != WindowPlacement.Fullscreen) WindowPlacement.Fullscreen
-                    else WindowPlacement.Floating
-                }
-            ) {
-                androidx.compose.material3.Icon(
-                    if (state.placement != WindowPlacement.Fullscreen) Icons.Default.Fullscreen else Icons.Default.FullscreenExit,
-                    null
-                )
-            }
-        }
-
-        Text(
-            "Anagramer",
-            modifier = Modifier.align(Alignment.Center),
-        )
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WordUi(
@@ -317,98 +217,46 @@ fun WordUi(
     LoadingDialog(showLoadingDialog = vm.isLoading)
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
 @Composable
 fun ApplicationScope.ShowHighScores(vm: WordViewModel) {
-    val state = rememberWindowState()
-    Window(
-        state = state,
-        undecorated = true,
-        transparent = true,
-        onCloseRequest = { vm.showHighScores = false },
+    WindowWithBar(
+        onCloseRequest = { vm.showHighScores = false }
     ) {
-        androidx.compose.material3.Surface(
-            shape = when (hostOs) {
-                OS.Linux -> RoundedCornerShape(8.dp)
-                OS.Windows -> RectangleShape
-                OS.MacOS -> RoundedCornerShape(8.dp)
-                else -> RoundedCornerShape(8.dp)
-            },
-            modifier = Modifier.animateContentSize()
+        var retry by remember { mutableStateOf(0) }
+        val scores by highScores(retry, vm.showSubmitScore)
+        Box(
+            modifier = Modifier.fillMaxSize(),
         ) {
-            androidx.compose.material3.Scaffold(
-                topBar = {
-                    Column {
-                        WindowDraggableArea(
-                            modifier = Modifier.combinedClickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() },
-                                onClick = {},
-                                onDoubleClick = {
-                                    state.placement =
-                                        if (state.placement != WindowPlacement.Maximized) {
-                                            WindowPlacement.Maximized
-                                        } else {
-                                            WindowPlacement.Floating
-                                        }
-                                }
-                            )
-                        ) {
-                            TopAppBar(
-                                backgroundColor = M3MaterialTheme.colorScheme.surface,
-                                elevation = 0.dp,
-                            ) {
-                                when (hostOs) {
-                                    OS.Linux -> LinuxTopBar(state) { vm.showHighScores = false }
-                                    OS.Windows -> WindowsTopBar(state) { vm.showHighScores = false }
-                                    OS.MacOS -> MacOsTopBar(state) { vm.showHighScores = false }
-                                    else -> {}
-                                }
-                            }
-                        }
-                        Divider(color = M3MaterialTheme.colorScheme.onSurface)
+            Crossfade(scores) { target ->
+                when (target) {
+                    is Result.Loading -> {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                     }
-                },
-                containerColor = M3MaterialTheme.colorScheme.surface
-            ) { padding ->
-                androidx.compose.material3.Surface(modifier = Modifier.padding(padding)) {
-                    var retry by remember { mutableStateOf(0) }
-                    val scores by highScores(retry, vm.showSubmitScore)
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        Crossfade(scores) { target ->
-                            when (target) {
-                                is Result.Loading -> {
-                                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                                }
 
-                                is Result.Success<Scores> -> {
-                                    LazyColumn(
-                                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                                    ) {
-                                        stickyHeader { SmallTopAppBar(title = { Text("HighScores") }) }
+                    is Result.Success<Scores> -> {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            stickyHeader { SmallTopAppBar(title = { Text("HighScores") }) }
 
-                                        itemsIndexed(target.value.list) { index, item ->
-                                            Card {
-                                                ListItem(
-                                                    icon = { Text("$index.") },
-                                                    text = { Text(item.name) },
-                                                    trailing = { Text(item.score.toString()) }
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                is Result.Error -> {
-                                    androidx.compose.material3.OutlinedButton(
-                                        onClick = { retry++ },
-                                        modifier = Modifier.align(Alignment.Center)
-                                    ) { Text("Something went wrong. Please try again.") }
+                            itemsIndexed(target.value.list) { index, item ->
+                                Card {
+                                    ListItem(
+                                        icon = { Text("$index.") },
+                                        text = { Text(item.name) },
+                                        trailing = { Text(item.score.toString()) }
+                                    )
                                 }
                             }
                         }
+                    }
+
+                    is Result.Error -> {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { retry++ },
+                            modifier = Modifier.align(Alignment.Center)
+                        ) { Text("Something went wrong. Please try again.") }
                     }
                 }
             }
@@ -416,102 +264,36 @@ fun ApplicationScope.ShowHighScores(vm: WordViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
 @Composable
 fun ApplicationScope.GameOver(vm: WordViewModel) {
-    val state = rememberWindowState()
-    Window(
-        state = state,
-        undecorated = true,
-        transparent = true,
+    WindowWithBar(
         onCloseRequest = { vm.showSubmitScore = false },
+        bottomBar = {
+            BottomAppBar {
+                OutlinedTextField(
+                    value = vm.name,
+                    onValueChange = { vm.name = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        androidx.compose.material3.IconButton(onClick = vm::sendHighScore) {
+                            Icon(Icons.Default.Send, null)
+                        }
+                    }
+                )
+            }
+        }
     ) {
-        androidx.compose.material3.Surface(
-            shape = when (hostOs) {
-                OS.Linux -> RoundedCornerShape(8.dp)
-                OS.Windows -> RectangleShape
-                OS.MacOS -> RoundedCornerShape(8.dp)
-                else -> RoundedCornerShape(8.dp)
-            },
-            modifier = Modifier.animateContentSize()
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
         ) {
-            androidx.compose.material3.Scaffold(
-                topBar = {
-                    Column {
-                        WindowDraggableArea(
-                            modifier = Modifier.combinedClickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() },
-                                onClick = {},
-                                onDoubleClick = {
-                                    state.placement =
-                                        if (state.placement != WindowPlacement.Maximized) {
-                                            WindowPlacement.Maximized
-                                        } else {
-                                            WindowPlacement.Floating
-                                        }
-                                }
-                            )
-                        ) {
-                            TopAppBar(
-                                backgroundColor = M3MaterialTheme.colorScheme.surface,
-                                elevation = 0.dp,
-                            ) {
-                                when (hostOs) {
-                                    OS.Linux -> LinuxTopBar(state) { vm.showSubmitScore = false }
-                                    OS.Windows -> WindowsTopBar(state) { vm.showSubmitScore = false }
-                                    OS.MacOS -> MacOsTopBar(state) { vm.showSubmitScore = false }
-                                    else -> {}
-                                }
-                            }
-                        }
-                        Divider(color = M3MaterialTheme.colorScheme.onSurface)
-                    }
-                },
-                containerColor = M3MaterialTheme.colorScheme.surface,
-                bottomBar = {
-                    BottomAppBar {
-                        OutlinedTextField(
-                            value = vm.name,
-                            onValueChange = { vm.name = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            trailingIcon = {
-                                androidx.compose.material3.IconButton(onClick = vm::sendHighScore) {
-                                    Icon(Icons.Default.Send, null)
-                                }
-                            }
-                        )
-                    }
-                }
-            ) { padding ->
-                androidx.compose.material3.Surface(modifier = Modifier.padding(padding)) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        Column {
-                            Text("Game Over!")
-                            Text("Final Score: ${vm.score}")
-                            Text("Do you want to submit it?")
-                        }
-                    }
-                }
+            Column {
+                Text("Game Over!")
+                Text("Final Score: ${vm.score}")
+                Text("Do you want to submit it?")
             }
         }
     }
-}
-
-@Composable
-fun highScores(vararg key: Any?) = produceState<Result<Scores>>(Result.Loading, keys = key) {
-    value = Result.Loading
-    val response = withContext(Dispatchers.IO) { getHighScores().getOrNull() }
-    value = response?.let { Result.Success(it) } ?: Result.Error
-}
-
-sealed class Result<out R> {
-    class Success<out T>(val value: T) : Result<T>()
-    object Error : Result<Nothing>()
-    object Loading : Result<Nothing>()
 }
 
 @OptIn(
@@ -892,270 +674,6 @@ private fun CustomListItem(
         )
     }
 }
-
-class WordViewModel(val viewModelScope: CoroutineScope) {
-
-    var showHighScores by mutableStateOf(false)
-    var showSubmitScore by mutableStateOf(false)
-    var name by mutableStateOf("")
-
-    var shouldStartNewGame by mutableStateOf(false)
-    var finishGame by mutableStateOf(false)
-    var finishedGame by mutableStateOf(false)
-    private var usedFinishGame = false
-    var isLoading by mutableStateOf(false)
-
-    var mainLetters by mutableStateOf("")
-
-    private val anagrams = mutableStateListOf<String>()
-    val anagramWords by derivedStateOf {
-        val size = if (anagrams.size > 50) 4 else 3
-        anagrams.filterNot { it.length < size }
-    }
-
-    val wordGuesses = mutableStateListOf<String>()
-    var wordGuess by mutableStateOf("")
-    private var prevGuess = ""
-
-    var definition by mutableStateOf<Definition?>(null)
-    private val definitionMap = mutableMapOf<String, Definition>()
-
-    var error: String? by mutableStateOf(null)
-
-    var usedHint by mutableStateOf(false)
-    var hints by mutableStateOf(0)
-    var hintList by mutableStateOf(emptySet<String>())
-    var gotNewHint by mutableStateOf(false)
-    val hintCount by derivedStateOf { hints + if (usedHint) 0 else 1 }
-
-    var showScoreInfo by mutableStateOf(false)
-    private var internalScore = 0
-    val score by derivedStateOf {
-        if (finishedGame) {
-            internalScore
-        } else {
-            wordGuesses
-                .groupBy { it.length }
-                .map { it.key * (it.value.size + it.key) }
-                .ifEmpty { listOf(0) }
-                .reduce { acc, i -> acc + i }
-        }
-    }
-
-    val scoreInfo by derivedStateOf {
-        wordGuesses
-            .sortedByDescending { it.length }
-            .groupBy { it.length }
-            .mapValues { (it.value.size + it.key) * it.key }
-    }
-
-    fun getWord() {
-        viewModelScope.launch {
-            showSubmitScore = false
-            shouldStartNewGame = false
-            finishedGame = false
-            isLoading = true
-            internalScore = 0
-            definitionMap.clear()
-            if (
-                (wordGuesses.size >= anagramWords.size / 2 || wordGuesses.any { it.length == 7 }) && !usedFinishGame
-            ) {
-                gotNewHint = true
-                hints++
-            }
-            anagrams.clear()
-            usedHint = false
-            wordGuesses.clear()
-            hintList = emptySet()
-            usedFinishGame = false
-            wordGuess = ""
-            withContext(Dispatchers.IO) {
-                getLetters().fold(
-                    onSuccess = {
-                        println(it)
-                        error = null
-                        mainLetters = it?.word
-                            ?.toList()
-                            ?.shuffled()
-                            ?.joinToString("")
-                            .orEmpty()
-                        anagrams.addAll(it?.anagrams.orEmpty())
-                    },
-                    onFailure = {
-                        it.printStackTrace()
-                        error = "Something went Wrong"
-                        ""
-                    }
-                )
-            }
-            isLoading = false
-        }
-    }
-
-    fun endGame() {
-        internalScore = score
-        usedFinishGame = !(wordGuesses.size >= anagramWords.size / 2 || wordGuesses.any { it.length == 7 })
-        wordGuesses.clear()
-        wordGuesses.addAll(anagramWords)
-        finishGame = false
-        finishedGame = true
-        showSubmitScore = true
-    }
-
-    fun sendHighScore() {
-        viewModelScope.launch {
-            postHighScore(name, internalScore).fold(
-                onSuccess = { showSubmitScore = false },
-                onFailure = { it.printStackTrace() }
-            )
-        }
-    }
-
-    fun shuffle() {
-        mainLetters = mainLetters.toList().shuffled().joinToString("")
-    }
-
-    fun updateGuess(word: String) {
-        //TODO: Final thing is to make sure only the letters chosen can be pressed
-        if (word.toList().all { mainLetters.contains(it) }) {
-            wordGuess = word
-        }
-    }
-
-    fun useHint() {
-        if (hints > 0) {
-            if (usedHint) {
-                hints--
-            }
-            usedHint = true
-            mainLetters
-                .uppercase()
-                .filterNot { hintList.contains(it.toString()) }
-                .randomOrNull()
-                ?.uppercase()
-                ?.let {
-                    val list = hintList.toMutableSet()
-                    list.add(it)
-                    hintList = list
-                }
-        }
-    }
-
-    fun bringBackWord() {
-        wordGuess = prevGuess
-    }
-
-    fun guess(onAlreadyGuessed: (Int) -> Unit): String {
-        return when {
-            wordGuesses.contains(wordGuess) -> {
-                onAlreadyGuessed(wordGuesses.indexOf(wordGuess))
-                "Already Guessed"
-            }
-
-            anagramWords.any { it.equals(wordGuess, ignoreCase = true) } -> {
-                wordGuesses.add(wordGuess)
-                prevGuess = wordGuess
-                wordGuess = ""
-                "Got it!"
-            }
-
-            else -> "Not in List"
-        }
-    }
-
-    fun getDefinition(word: String, onComplete: () -> Unit) {
-        viewModelScope.launch {
-            if (definitionMap.contains(word) && definitionMap[word] != null) {
-                onComplete()
-                definition = definitionMap[word]
-            } else {
-                isLoading = true
-                withContext(Dispatchers.IO) {
-                    definition = withTimeoutOrNull(5000) { getWordDefinition(word) }?.fold(
-                        onSuccess = { definition ->
-                            error = null
-                            definition?.also {
-                                onComplete()
-                                definitionMap[word] = it
-                            }
-                        },
-                        onFailure = { null }
-                    )
-                    if (definition == null) error = "Something went Wrong"
-                }
-                isLoading = false
-            }
-        }
-    }
-}
-
-suspend fun getLetters() = runCatching {
-    getApi<Word>("http://0.0.0.0:8080/randomWord/7?minimumSize=4")
-}
-
-suspend fun getWordDefinition(word: String) = runCatching {
-    getApi<Definition>("http://0.0.0.0:8080/wordDefinition/$word")
-}
-
-suspend fun getHighScores() = runCatching {
-    getApi<Scores>("http://0.0.0.0:8080/highScores")
-}
-
-suspend fun postHighScore(name: String, score: Int) = runCatching {
-    postApi<Scores>("http://0.0.0.0:8080/highScore/$name/$score")
-}
-
-suspend inline fun <reified T> getApi(
-    url: String,
-    noinline headers: HeadersBuilder.() -> Unit = {}
-): T? {
-    val client = HttpClient {
-        install(ContentNegotiation) {
-            json(
-                Json {
-                    isLenient = true
-                    prettyPrint = true
-                    ignoreUnknownKeys = true
-                    coerceInputValues = true
-                }
-            )
-        }
-    }
-    val response: HttpResponse = client.get(url) { headers(headers) }
-    return response.body<T>()
-}
-
-suspend inline fun <reified T> postApi(
-    url: String,
-    noinline headers: HeadersBuilder.() -> Unit = {}
-): T? {
-    val client = HttpClient {
-        install(ContentNegotiation) {
-            json(
-                Json {
-                    isLenient = true
-                    prettyPrint = true
-                    ignoreUnknownKeys = true
-                    coerceInputValues = true
-                }
-            )
-        }
-    }
-    val response: HttpResponse = client.post(url) { headers(headers) }
-    return response.body<T>()
-}
-
-@Serializable
-data class Word(val word: String, val anagrams: List<String>)
-
-@Serializable
-data class Definition(val word: String, val definition: String)
-
-@Serializable
-data class Scores(val list: List<HighScore>)
-
-@Serializable
-data class HighScore(val name: String, val score: Int)
 
 val Emerald = Color(0xFF2ecc71)
 val Sunflower = Color(0xFFf1c40f)
