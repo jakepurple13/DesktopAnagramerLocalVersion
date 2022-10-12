@@ -228,12 +228,11 @@ fun ApplicationScope.ShowHighScores(vm: WordViewModel) {
         Box(
             modifier = Modifier.fillMaxSize(),
         ) {
+
+            LoadingDialog(scores is Result.Loading)
+
             Crossfade(scores) { target ->
                 when (target) {
-                    is Result.Loading -> {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                    }
-
                     is Result.Success<Scores> -> {
                         LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -258,6 +257,8 @@ fun ApplicationScope.ShowHighScores(vm: WordViewModel) {
                             modifier = Modifier.align(Alignment.Center)
                         ) { Text("Something went wrong. Please try again.") }
                     }
+
+                    else -> Unit
                 }
             }
         }
