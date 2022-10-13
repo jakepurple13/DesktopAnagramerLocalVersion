@@ -57,6 +57,10 @@ class WordViewModel(val viewModelScope: CoroutineScope) {
             .mapValues { (it.value.size + it.key) * it.key }
     }
 
+    init {
+        getWord()
+    }
+
     fun getWord() {
         viewModelScope.launch {
             showSubmitScore = false

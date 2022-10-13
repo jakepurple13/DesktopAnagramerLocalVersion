@@ -348,8 +348,12 @@ fun WordContent(
                     if (state) {
                         Card(
                             onClick = { vm.getDefinition(anagrams) { scope.launch { drawerState.open() } } },
+                            backgroundColor = M3MaterialTheme.colorScheme.background,
+                            border = BorderStroke(1.dp, M3MaterialTheme.colorScheme.onBackground)
                         ) {
-                            CustomListItem {
+                            CustomListItem(
+                                containerColor = Color.Transparent
+                            ) {
                                 Box(
                                     Modifier
                                         .weight(1f)
