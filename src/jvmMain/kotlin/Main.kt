@@ -88,6 +88,8 @@ fun main() = application {
                         when (it.key) {
                             Key.Backspace -> vm.updateGuess(vm.wordGuess.dropLast(1))
 
+                            Key.DirectionUp -> vm.bringBackWord()
+
                             Key.Enter -> {
                                 scope.launch {
                                     val message = vm.guess {}
