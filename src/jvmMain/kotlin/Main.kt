@@ -159,6 +159,7 @@ fun main() = application {
             }
             if (vm.showHighScores) ShowHighScores(vm)
             if (vm.showSubmitScore) GameOver(vm)
+            ChatUi({})
         }
     }
 }
