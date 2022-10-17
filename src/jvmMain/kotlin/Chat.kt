@@ -6,19 +6,20 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.websocket.*
+import io.ktor.websocket.serialization.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
 import java.text.SimpleDateFormat
 import java.util.*
-
-enum class MessageType {
-    MESSAGE, SERVER, INFO, TYPING_INDICATOR
-}
 
 @Serializable
 data class SendMessage(
@@ -41,6 +42,13 @@ private val json = Json {
     prettyPrint = true
     isLenient = true
     encodeDefaults = true
+    serializersModule = SerializersModule {
+        polymorphic(Message::class) {
+            subclass(MessageMessage::class)
+            subclass(SetupMessage::class)
+            subclass(UserListMessage::class)
+        }
+    }
 }
 
 class Chat {
@@ -65,9 +73,9 @@ class Chat {
         }
     }
 
-    val messages = MutableSharedFlow<SendMessage>()
+    val messages = MutableSharedFlow<Message>()
 
-    val name = MutableStateFlow<String?>(null)
+    val name = MutableStateFlow<SetupMessage?>(null)
 
     suspend fun init() {
         client.ws(method = HttpMethod.Get, host = "0.0.0.0", port = 8080, path = "/anagramerChat") {
@@ -76,27 +84,38 @@ class Chat {
                 .filterIsInstance<Frame.Text>()
                 .map { it.readText() }
                 .map { text ->
-                    if (name.value == null) name.emit(text)
                     println(text)
                     try {
-                        json.decodeFromString<SendMessage>(text)
+                        json.decodeFromString<Message>(text)
                     } catch (e: Exception) {
-                        null
+                        try {
+                            json.decodeFromString<SetupMessage>(text)
+                        } catch (_: Exception) {
+                            null
+                        }
                     }
                 }
                 .filterNotNull()
-                .onEach { messages.emit(it) }
+                .onEach {
+                    when (it) {
+                        is MessageMessage -> messages.emit(it)
+                        is SetupMessage -> name.emit(it)
+                        is UserListMessage -> messages.emit(it)
+                    }
+                }
                 .collect()
         }
     }
 
     suspend fun sendMessage(message: String) {
         client.post("http://0.0.0.0:8080/anagramerMessage") {
-            setBody(PostMessage(name.value.orEmpty(), message))
+            setBody(PostMessage(name.value?.user?.name.orEmpty(), message))
             contentType(ContentType.Application.Json)
         }
     }
 }
+
+private val jsonConverter = KotlinxWebsocketSerializationConverter(json)
 
 fun main() = runBlocking {
     val scan = Scanner(System.`in`)
@@ -112,13 +131,26 @@ fun main() = runBlocking {
                 .filterIsInstance<Frame.Text>()
                 .map { it.readText() }
                 .map { text ->
+                    println(text)
                     try {
-                        json.decodeFromString<SendMessage>(text).message
+                        json.decodeFromString<Message>(text)
                     } catch (e: Exception) {
-                        text
+                        try {
+                            json.decodeFromString<SetupMessage>(text)
+                        } catch (_: Exception) {
+                            null
+                        }
                     }
                 }
-                .onEach { println(it) }
+                .filterNotNull()
+                .onEach {
+                    println(it)
+                    when (it) {
+                        is MessageMessage -> println("Message: ${it.message}")
+                        is SetupMessage -> println("Setup: ${it.userColor}")
+                        is UserListMessage -> println("UserList: ${it.userList}")
+                    }
+                }
                 .collect()
         }
 
@@ -128,3 +160,39 @@ fun main() = runBlocking {
         }
     }
 }
+
+enum class MessageType {
+    MESSAGE, SERVER, INFO, TYPING_INDICATOR, SETUP
+}
+
+@Serializable
+sealed class Message {
+    abstract val user: ChatUser
+    abstract val messageType: MessageType
+    val time: String = SimpleDateFormat("MM/dd hh:mm a").format(System.currentTimeMillis())
+}
+
+@Serializable
+@SerialName("MessageMessage")
+data class MessageMessage(
+    override val user: ChatUser,
+    val message: String,
+    override val messageType: MessageType = MessageType.MESSAGE
+) : Message() {
+}
+
+@Serializable
+@SerialName("SetupMessage")
+data class SetupMessage(
+    override val user: ChatUser,
+    val userColor: Int,
+    override val messageType: MessageType = MessageType.SETUP
+) : Message()
+
+@Serializable
+@SerialName("UserListMessage")
+data class UserListMessage(
+    override val user: ChatUser,
+    override val messageType: MessageType = MessageType.INFO,
+    val userList: List<ChatUser>
+) : Message()

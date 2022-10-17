@@ -1,3 +1,4 @@
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -52,7 +53,7 @@ fun ApplicationScope.ChatUi(
                         },
                     trailingIcon = { IconButton(onClick = vm::send) { Icon(Icons.Default.Send, null) } },
                     singleLine = true,
-                    label = { Text("You are: ${vm.name}") }
+                    label = { Text("You are: ${vm.name?.user?.name}") }
                 )
             }
         }
@@ -62,12 +63,24 @@ fun ApplicationScope.ChatUi(
         ) {
             stickyHeader { CenterAlignedTopAppBar(title = { Text("Chat") }) }
             items(vm.messages) {
-                Card {
-                    ListItem(
-                        icon = { Text(it.user.name) },
-                        text = { Text(it.message) },
-                        overlineText = { Text(it.time) }
-                    )
+                if (it is MessageMessage) {
+                    Card(
+                        border = if (it.user.name == vm.name?.user?.name) BorderStroke(1.dp, Emerald) else null
+                    ) {
+                        ListItem(
+                            icon = { Text(it.user.name) },
+                            text = { Text(it.message) },
+                            overlineText = { Text(it.time) }
+                        )
+                    }
+                } else if (it is UserListMessage) {
+                    Card {
+                        ListItem(
+                            icon = { Text("Current Users:") },
+                            text = { Text(it.userList.joinToString(",") { it.name }) },
+                            overlineText = { Text(it.time) }
+                        )
+                    }
                 }
             }
         }
@@ -82,9 +95,9 @@ class ChatViewModel(
     private val chat = Chat()
 
     var text by mutableStateOf("")
-    val messages = mutableStateListOf<SendMessage>()
+    val messages = mutableStateListOf<Message>()
 
-    var name by mutableStateOf("")
+    var name by mutableStateOf<SetupMessage?>(null)
 
     init {
         viewModelScope.launch { chat.init() }
