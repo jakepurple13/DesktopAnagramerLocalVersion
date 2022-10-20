@@ -1,3 +1,4 @@
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
@@ -31,49 +32,56 @@ fun ApplicationScope.ChatUi(
     WindowWithBar(
         onCloseRequest,
         bottomBar = {
-            BottomAppBar {
-                OutlinedTextField(
-                    value = vm.text,
-                    onValueChange = vm::updateText,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onPreviewKeyEvent {
-                            when {
-                                it.key == Key.Enter && it.type == KeyEventType.KeyUp -> {
-                                    vm.send()
-                                    true
-                                }
+            Column {
+                AnimatedVisibility(
+                    vm.typingIndicator != null,
+                    modifier = Modifier.padding(start = 4.dp)
+                ) {
+                    vm.typingIndicator?.text?.let { Text(it) }
+                }
+                BottomAppBar {
+                    OutlinedTextField(
+                        value = vm.text,
+                        onValueChange = vm::updateText,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onPreviewKeyEvent {
+                                when {
+                                    it.key == Key.Enter && it.type == KeyEventType.KeyUp -> {
+                                        vm.send()
+                                        true
+                                    }
 
-                                else -> false
-                            }
-                        },
-                    trailingIcon = { IconButton(onClick = vm::send) { Icon(Icons.Default.Send, null) } },
-                    singleLine = true,
-                    label = { Text("You are: ${vm.name?.user?.name}") }
-                )
+                                    else -> false
+                                }
+                            },
+                        trailingIcon = { IconButton(onClick = vm::send) { Icon(Icons.Default.Send, null) } },
+                        singleLine = true,
+                        label = { Text("You are: ${vm.name?.user?.name}") }
+                    )
+                }
             }
         }
     ) {
         Row {
-            Column(Modifier.weight(8f)) {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.padding(start = 4.dp)
-                ) {
-                    stickyHeader { CenterAlignedTopAppBar(title = { Text("Chat") }) }
-                    items(vm.messages) {
-                        Card(
-                            border = if (it.user.name == vm.name?.user?.name) BorderStroke(1.dp, Emerald) else null
-                        ) {
-                            ListItem(
-                                icon = { Text(it.user.name) },
-                                text = { Text(it.message) },
-                                overlineText = { Text(it.time) }
-                            )
-                        }
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier
+                    .padding(horizontal = 4.dp)
+                    .weight(8f)
+            ) {
+                stickyHeader { CenterAlignedTopAppBar(title = { Text("Chat") }) }
+                items(vm.messages) {
+                    Card(
+                        border = if (it.user.name == vm.name?.user?.name) BorderStroke(1.dp, Emerald) else null
+                    ) {
+                        ListItem(
+                            icon = { Text(it.user.name) },
+                            text = { Text(it.message) },
+                            overlineText = { Text(it.time) }
+                        )
                     }
                 }
-                vm.typingIndicator?.text?.let { Text(it) }
             }
             Divider(
                 modifier = Modifier

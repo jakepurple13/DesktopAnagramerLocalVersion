@@ -408,26 +408,6 @@ fun BottomBar(
         Column {
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier
-                    .animateContentSize()
-                    .fillMaxWidth()
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    vm.mainLetters.forEach {
-                        androidx.compose.material3.OutlinedButton(
-                            onClick = { vm.updateGuess("${vm.wordGuess}$it") },
-                            border = BorderStroke(1.dp, M3MaterialTheme.colorScheme.primary.copy(alpha = .5f)),
-                        ) { Text(it.uppercase()) }
-                    }
-                }
-
-                androidx.compose.material3.OutlinedButton(
-                    onClick = vm::shuffle,
-                ) { Icon(Icons.Default.Shuffle, null) }
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -450,6 +430,28 @@ fun BottomBar(
             }
 
             Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier
+                    .height(48.dp)
+                    .animateContentSize()
+                    .fillMaxWidth()
+            ) {
+                val cornerSize = 16.dp
+                vm.mainLetters.forEachIndexed { index, it ->
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { vm.updateGuess("${vm.wordGuess}$it") },
+                        border = BorderStroke(1.dp, MaterialTheme.colors.primary),
+                        modifier = Modifier.weight(1f),
+                        shape = when (index) {
+                            0 -> RoundedCornerShape(topStart = cornerSize, bottomStart = cornerSize)
+                            vm.mainLetters.lastIndex -> RoundedCornerShape(topEnd = cornerSize, bottomEnd = cornerSize)
+                            else -> RectangleShape
+                        }
+                    ) { Text(it.uppercase()) }
+                }
+            }
+
+            Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -459,6 +461,10 @@ fun BottomBar(
                 androidx.compose.material3.OutlinedButton(
                     onClick = vm::bringBackWord
                 ) { Icon(Icons.Default.Undo, null) }
+
+                androidx.compose.material3.OutlinedButton(
+                    onClick = vm::shuffle,
+                ) { Icon(Icons.Default.Shuffle, null) }
 
                 androidx.compose.material3.OutlinedButton(
                     onClick = {
