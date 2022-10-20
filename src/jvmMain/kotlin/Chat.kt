@@ -35,6 +35,9 @@ data class ChatUser(val name: String)
 @Serializable
 data class PostMessage(val name: String, val message: String)
 
+@Serializable
+class TypingIndicator(val user: ChatUser, val isTyping: Boolean)
+
 fun input(prompt: String = "", scanner: Scanner = Scanner(System.`in`)): String =
     println(prompt).let { scanner.nextLine() }
 
@@ -73,9 +76,10 @@ class Chat {
         }
     }
 
-    val messages = MutableSharedFlow<Message>()
-
+    val messages = MutableSharedFlow<MessageMessage>()
+    val users = MutableSharedFlow<UserListMessage>()
     val name = MutableStateFlow<SetupMessage?>(null)
+    val arePeopleTyping = MutableStateFlow<TypingIndicatorMessage?>(null)
 
     suspend fun init() {
         client.ws(method = HttpMethod.Get, host = "0.0.0.0", port = 8080, path = "/anagramerChat") {
@@ -100,7 +104,8 @@ class Chat {
                     when (it) {
                         is MessageMessage -> messages.emit(it)
                         is SetupMessage -> name.emit(it)
-                        is UserListMessage -> messages.emit(it)
+                        is UserListMessage -> users.emit(it)
+                        is TypingIndicatorMessage -> arePeopleTyping.emit(it)
                     }
                 }
                 .collect()
@@ -110,6 +115,13 @@ class Chat {
     suspend fun sendMessage(message: String) {
         client.post("http://0.0.0.0:8080/anagramerMessage") {
             setBody(PostMessage(name.value?.user?.name.orEmpty(), message))
+            contentType(ContentType.Application.Json)
+        }
+    }
+
+    suspend fun isTyping(isTyping: Boolean) {
+        client.post("http://0.0.0.0:8080/anagramerTyping") {
+            setBody(TypingIndicator(ChatUser(name.value?.user?.name.orEmpty()), isTyping))
             contentType(ContentType.Application.Json)
         }
     }
@@ -195,4 +207,12 @@ data class UserListMessage(
     override val user: ChatUser,
     override val messageType: MessageType = MessageType.INFO,
     val userList: List<ChatUser>
+) : Message()
+
+@Serializable
+@SerialName("TypingIndicatorMessage")
+data class TypingIndicatorMessage(
+    override val user: ChatUser,
+    override val messageType: MessageType = MessageType.TYPING_INDICATOR,
+    val text: String
 ) : Message()

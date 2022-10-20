@@ -1,7 +1,6 @@
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.*
@@ -17,13 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ApplicationScope
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
@@ -38,7 +34,7 @@ fun ApplicationScope.ChatUi(
             BottomAppBar {
                 OutlinedTextField(
                     value = vm.text,
-                    onValueChange = { vm.text = it },
+                    onValueChange = vm::updateText,
                     modifier = Modifier
                         .fillMaxWidth()
                         .onPreviewKeyEvent {
@@ -58,28 +54,41 @@ fun ApplicationScope.ChatUi(
             }
         }
     ) {
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            stickyHeader { CenterAlignedTopAppBar(title = { Text("Chat") }) }
-            items(vm.messages) {
-                if (it is MessageMessage) {
-                    Card(
-                        border = if (it.user.name == vm.name?.user?.name) BorderStroke(1.dp, Emerald) else null
-                    ) {
-                        ListItem(
-                            icon = { Text(it.user.name) },
-                            text = { Text(it.message) },
-                            overlineText = { Text(it.time) }
-                        )
+        Row {
+            Column(Modifier.weight(8f)) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(start = 4.dp)
+                ) {
+                    stickyHeader { CenterAlignedTopAppBar(title = { Text("Chat") }) }
+                    items(vm.messages) {
+                        Card(
+                            border = if (it.user.name == vm.name?.user?.name) BorderStroke(1.dp, Emerald) else null
+                        ) {
+                            ListItem(
+                                icon = { Text(it.user.name) },
+                                text = { Text(it.message) },
+                                overlineText = { Text(it.time) }
+                            )
+                        }
                     }
-                } else if (it is UserListMessage) {
-                    Card {
-                        ListItem(
-                            icon = { Text("Current Users:") },
-                            text = { Text(it.userList.joinToString(",") { it.name }) },
-                            overlineText = { Text(it.time) }
-                        )
+                }
+                vm.typingIndicator?.text?.let { Text(it) }
+            }
+            Divider(
+                modifier = Modifier
+                    .width(1.dp)
+                    .fillMaxHeight(),
+                color = MaterialTheme.colors.primary
+            )
+            LazyColumn(
+                modifier = Modifier.weight(2f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                stickyHeader { CenterAlignedTopAppBar(title = { Text("Users") }) }
+                vm.users?.userList?.let {
+                    items(it) { user ->
+                        Card { ListItem(text = { Text(user.name) }) }
                     }
                 }
             }
@@ -95,9 +104,15 @@ class ChatViewModel(
     private val chat = Chat()
 
     var text by mutableStateOf("")
-    val messages = mutableStateListOf<Message>()
+    val messages = mutableStateListOf<MessageMessage>()
 
     var name by mutableStateOf<SetupMessage?>(null)
+
+    var typingIndicator by mutableStateOf<TypingIndicatorMessage?>(null)
+    var users by mutableStateOf<UserListMessage?>(null)
+
+    private var hasSent = false
+    private var job: Job? = null
 
     init {
         viewModelScope.launch { chat.init() }
@@ -110,12 +125,34 @@ class ChatViewModel(
             .filterNotNull()
             .onEach { name = it }
             .launchIn(viewModelScope)
+
+        chat.users
+            .onEach { users = it }
+            .launchIn(viewModelScope)
+
+        chat.arePeopleTyping
+            .onEach { typingIndicator = it }
+            .launchIn(viewModelScope)
     }
 
     fun send() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { chat.sendMessage(text) }
             text = ""
+        }
+    }
+
+    fun updateText(message: String) {
+        text = message
+        job?.cancel()
+        job = viewModelScope.launch {
+            if (!hasSent) {
+                chat.isTyping(text.isNotEmpty())
+                hasSent = true
+            }
+            delay(2500)
+            chat.isTyping(false)
+            hasSent = false
         }
     }
 }
