@@ -436,12 +436,12 @@ fun BottomBar(
                     androidx.compose.material3.OutlinedButton(
                         onClick = { vm.updateGuess("${vm.wordGuess}$it") },
                         border = BorderStroke(1.dp, M3MaterialTheme.colorScheme.primary),
-                        modifier = Modifier.weight(1f),
-                        shape = when (index) {
+                        //modifier = Modifier.weight(1f),
+                        /*shape = when (index) {
                             0 -> RoundedCornerShape(topStart = cornerSize, bottomStart = cornerSize)
                             vm.mainLetters.lastIndex -> RoundedCornerShape(topEnd = cornerSize, bottomEnd = cornerSize)
                             else -> RectangleShape
-                        }
+                        }*/
                     ) { Text(it.uppercase()) }
                 }
             }
@@ -509,6 +509,7 @@ fun DefinitionDrawer(vm: WordViewModel) {
                 item {
                     Card {
                         ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             headlineText = { Text(definition.word) },
                             supportingText = {
                                 Column {
