@@ -1,4 +1,3 @@
-import org.jetbrains.compose.compose
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
@@ -37,6 +36,8 @@ kotlin {
                 implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
                 implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
                 implementation("io.ktor:ktor-client-websockets:$ktor_version")
+
+                implementation("com.mikepenz:multiplatform-markdown-renderer-jvm:0.6.1")
             }
         }
         val jvmTest by getting

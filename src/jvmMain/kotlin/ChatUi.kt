@@ -1,28 +1,33 @@
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.*
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ApplicationScope
+import com.mikepenz.markdown.Markdown
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 
-@OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
+@OptIn(
+    ExperimentalMaterialApi::class, ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class,
+    ExperimentalMaterial3Api::class
+)
 @Composable
 fun ApplicationScope.ChatUi(
     onCloseRequest: () -> Unit,
@@ -39,27 +44,31 @@ fun ApplicationScope.ChatUi(
                 ) {
                     vm.typingIndicator?.text?.let { Text(it) }
                 }
-                BottomAppBar {
-                    OutlinedTextField(
-                        value = vm.text,
-                        onValueChange = vm::updateText,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onPreviewKeyEvent {
-                                when {
-                                    it.key == Key.Enter && it.type == KeyEventType.KeyUp -> {
-                                        vm.send()
-                                        true
-                                    }
-
-                                    else -> false
+                OutlinedTextField(
+                    value = vm.text,
+                    onValueChange = vm::updateText,
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surface)
+                        .fillMaxWidth()
+                        .onPreviewKeyEvent {
+                            when {
+                                it.key == Key.Enter && !it.isShiftPressed && it.type == KeyEventType.KeyUp -> {
+                                    vm.send()
+                                    true
                                 }
-                            },
-                        trailingIcon = { IconButton(onClick = vm::send) { Icon(Icons.Default.Send, null) } },
-                        singleLine = true,
-                        label = { Text("You are: ${vm.name?.user?.name}") }
-                    )
-                }
+
+                                it.key == Key.Enter && it.isShiftPressed && it.type == KeyEventType.KeyUp -> {
+                                    val value = vm.text.text + "\n"
+                                    vm.updateText(TextFieldValue(value, selection = TextRange(value.length)))
+                                    true
+                                }
+
+                                else -> false
+                            }
+                        },
+                    trailingIcon = { IconButton(onClick = vm::send) { Icon(Icons.Default.Send, null) } },
+                    label = { Text("You are: ${vm.name?.user?.name}") }
+                )
             }
         }
     ) {
@@ -72,13 +81,20 @@ fun ApplicationScope.ChatUi(
             ) {
                 stickyHeader { CenterAlignedTopAppBar(title = { Text("Chat") }) }
                 items(vm.messages) {
-                    Card(
-                        border = if (it.user.name == vm.name?.user?.name) BorderStroke(1.dp, Emerald) else null
+                    OutlinedCard(
+                        border = if (it.user.name == vm.name?.user?.name) BorderStroke(1.dp, Emerald)
+                        else CardDefaults.outlinedCardBorder()
                     ) {
                         ListItem(
-                            icon = { Text(it.user.name) },
-                            text = { Text(it.message) },
-                            overlineText = { Text(it.time) }
+                            headlineText = { Text(it.user.name) },
+                            overlineText = { Text(it.time) },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            supportingText = {
+                                Column {
+                                    Divider()
+                                    Markdown(it.message)
+                                }
+                            }
                         )
                     }
                 }
@@ -87,16 +103,23 @@ fun ApplicationScope.ChatUi(
                 modifier = Modifier
                     .width(1.dp)
                     .fillMaxHeight(),
-                color = MaterialTheme.colors.primary
+                color = MaterialTheme.colorScheme.primary
             )
             LazyColumn(
-                modifier = Modifier.weight(2f),
+                modifier = Modifier
+                    .padding(horizontal = 2.dp)
+                    .weight(2f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 stickyHeader { CenterAlignedTopAppBar(title = { Text("Users") }) }
                 vm.users?.userList?.let {
                     items(it) { user ->
-                        Card { ListItem(text = { Text(user.name) }) }
+                        OutlinedCard {
+                            ListItem(
+                                headlineText = { Text(user.name) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
                     }
                 }
             }
@@ -111,7 +134,7 @@ class ChatViewModel(
 
     private val chat = Chat()
 
-    var text by mutableStateOf("")
+    var text by mutableStateOf(TextFieldValue(""))
     val messages = mutableStateListOf<MessageMessage>()
 
     var name by mutableStateOf<SetupMessage?>(null)
@@ -146,24 +169,24 @@ class ChatViewModel(
     fun send() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                chat.sendMessage(text)
+                chat.sendMessage(text.text)
                 chat.isTyping(false)
             }
             hasSent = false
-            text = ""
+            text = TextFieldValue("")
         }
     }
 
-    fun updateText(message: String) {
+    fun updateText(message: TextFieldValue) {
         text = message
         job?.cancel()
         job = viewModelScope.launch {
             if (!hasSent) {
-                chat.isTyping(text.isNotEmpty())
+                chat.isTyping(text.text.isNotEmpty())
                 hasSent = true
             }
             delay(5000)
-            if (text.isEmpty()) chat.isTyping(false)
+            if (text.text.isEmpty()) chat.isTyping(false)
             hasSent = false
         }
     }

@@ -160,6 +160,7 @@ fun main() = runBlocking {
                         is MessageMessage -> println("Message: ${it.message}")
                         is SetupMessage -> println("Setup: ${it.userColor}")
                         is UserListMessage -> println("UserList: ${it.userList}")
+                        is TypingIndicatorMessage -> println("Typing: ${it.text}")
                     }
                 }
                 .collect()

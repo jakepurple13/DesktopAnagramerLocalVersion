@@ -10,19 +10,16 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.window.WindowDraggableArea
-import androidx.compose.material.*
+import androidx.compose.material.AlertDialog
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.TopAppBar
+import androidx.compose.material.darkColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.DrawerState
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.contentColorFor
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -61,13 +58,13 @@ fun App(
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 fun main() = application {
-    MaterialTheme(
+    androidx.compose.material.MaterialTheme(
         darkColors(
             primary = Color(0xff90CAF9),
             secondary = Color(0xff90CAF9)
         )
     ) {
-        androidx.compose.material3.MaterialTheme(
+        M3MaterialTheme(
             darkColorScheme(
                 primary = Color(0xff90CAF9),
                 secondary = Color(0xff90CAF9)
@@ -172,18 +169,18 @@ fun WordUi(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val gridState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
 
     SnackbarHandler(vm = vm, snackbarHostState = snackbarHostState)
 
     WordDialogs(vm)
 
-    NavigationDrawer(
+    ModalNavigationDrawer(
         drawerContent = { DefinitionDrawer(vm) },
         drawerState = drawerState,
         gesturesEnabled = vm.definition != null
     ) {
-        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarScrollState())
         Scaffold(
             topBar = {
                 SmallTopAppBar(
@@ -220,7 +217,7 @@ fun WordUi(
     LoadingDialog(showLoadingDialog = vm.isLoading)
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ApplicationScope.ShowHighScores(vm: WordViewModel) {
     WindowWithBar(
@@ -243,11 +240,11 @@ fun ApplicationScope.ShowHighScores(vm: WordViewModel) {
                             stickyHeader { SmallTopAppBar(title = { Text("HighScores") }) }
 
                             itemsIndexed(target.value.list) { index, item ->
-                                Card {
+                                OutlinedCard {
                                     ListItem(
-                                        icon = { Text("$index.") },
-                                        text = { Text(item.name) },
-                                        trailing = { Text(item.score.toString()) }
+                                        leadingContent = { Text("$index.") },
+                                        headlineText = { Text(item.name) },
+                                        trailingContent = { Text(item.score.toString()) }
                                     )
                                 }
                             }
@@ -301,14 +298,13 @@ fun ApplicationScope.GameOver(vm: WordViewModel) {
 }
 
 @OptIn(
-    ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalFoundationApi::class,
-    ExperimentalMaterialApi::class
+    ExperimentalMaterial3Api::class
 )
 @Composable
 fun WordContent(
     padding: PaddingValues,
     vm: WordViewModel,
-    gridState: LazyListState,
+    gridState: LazyGridState,
     drawerState: DrawerState
 ) {
     val scope = rememberCoroutineScope()
@@ -337,7 +333,7 @@ fun WordContent(
         }
         LazyVerticalGrid(
             state = gridState,
-            cells = GridCells.Fixed(3),
+            columns = GridCells.Fixed(3),
             verticalArrangement = Arrangement.spacedBy(2.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             modifier = Modifier
@@ -347,9 +343,8 @@ fun WordContent(
             items(vm.anagramWords.sortedByDescending { it.length }) { anagrams ->
                 Crossfade(targetState = vm.wordGuesses.any { it.equals(anagrams, true) }) { state ->
                     if (state) {
-                        Card(
+                        OutlinedCard(
                             onClick = { vm.getDefinition(anagrams) { scope.launch { drawerState.open() } } },
-                            backgroundColor = M3MaterialTheme.colorScheme.background,
                             border = BorderStroke(1.dp, M3MaterialTheme.colorScheme.onBackground)
                         ) {
                             CustomListItem(
@@ -440,7 +435,7 @@ fun BottomBar(
                 vm.mainLetters.forEachIndexed { index, it ->
                     androidx.compose.material3.OutlinedButton(
                         onClick = { vm.updateGuess("${vm.wordGuess}$it") },
-                        border = BorderStroke(1.dp, MaterialTheme.colors.primary),
+                        border = BorderStroke(1.dp, M3MaterialTheme.colorScheme.primary),
                         modifier = Modifier.weight(1f),
                         shape = when (index) {
                             0 -> RoundedCornerShape(topStart = cornerSize, bottomStart = cornerSize)
@@ -489,11 +484,11 @@ fun BottomBar(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DefinitionDrawer(vm: WordViewModel) {
     vm.definition?.let { definition ->
-        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarScrollState())
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
@@ -514,8 +509,8 @@ fun DefinitionDrawer(vm: WordViewModel) {
                 item {
                     Card {
                         ListItem(
-                            text = { Text(definition.word) },
-                            secondaryText = {
+                            headlineText = { Text(definition.word) },
+                            supportingText = {
                                 Column {
                                     Text(definition.definition)
                                 }
@@ -616,7 +611,7 @@ fun WordDialogs(vm: WordViewModel) {
             text = {
                 LazyColumn {
                     items(vm.scoreInfo.entries.toList()) {
-                        ListItem(text = { Text("${it.key} = ${it.value} points") })
+                        ListItem(headlineText = { Text("${it.key} = ${it.value} points") })
                     }
                 }
             },
