@@ -57,7 +57,6 @@ private val json = Json {
 class Chat {
 
     private val json = Json {
-        prettyPrint = true
         isLenient = true
         encodeDefaults = true
     }

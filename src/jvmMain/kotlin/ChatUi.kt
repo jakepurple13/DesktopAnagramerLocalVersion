@@ -145,7 +145,11 @@ class ChatViewModel(
 
     fun send() {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { chat.sendMessage(text) }
+            withContext(Dispatchers.IO) {
+                chat.sendMessage(text)
+                chat.isTyping(false)
+            }
+            hasSent = false
             text = ""
         }
     }
@@ -158,8 +162,8 @@ class ChatViewModel(
                 chat.isTyping(text.isNotEmpty())
                 hasSent = true
             }
-            delay(2500)
-            chat.isTyping(false)
+            delay(5000)
+            if (text.isEmpty()) chat.isTyping(false)
             hasSent = false
         }
     }
