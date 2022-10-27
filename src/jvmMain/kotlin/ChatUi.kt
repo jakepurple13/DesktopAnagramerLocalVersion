@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
@@ -37,35 +38,37 @@ fun ApplicationScope.ChatUi(
     WindowWithBar(
         onCloseRequest,
         bottomBar = {
-            Column {
+            Column(
+                modifier = Modifier.onPreviewKeyEvent {
+                    when {
+                        it.key == Key.Enter && it.isShiftPressed && it.type == KeyEventType.KeyUp -> {
+                            val value = vm.text.text + "\n"
+                            vm.updateText(TextFieldValue(value, selection = TextRange(value.length)))
+                            true
+                        }
+
+                        it.key == Key.Enter &&
+                                (it.isMetaPressed || it.isCtrlPressed) &&
+                                it.type == KeyEventType.KeyUp -> {
+                            vm.send()
+                            true
+                        }
+
+                        else -> false
+                    }
+                },
+            ) {
                 AnimatedVisibility(
                     vm.typingIndicator != null,
                     modifier = Modifier.padding(start = 4.dp)
-                ) {
-                    vm.typingIndicator?.text?.let { Text(it) }
-                }
+                ) { vm.typingIndicator?.text?.let { Text(it) } }
                 OutlinedTextField(
                     value = vm.text,
                     onValueChange = vm::updateText,
                     modifier = Modifier
                         .background(MaterialTheme.colorScheme.surface)
-                        .fillMaxWidth()
-                        .onPreviewKeyEvent {
-                            when {
-                                it.key == Key.Enter && !it.isShiftPressed && it.type == KeyEventType.KeyUp -> {
-                                    vm.send()
-                                    true
-                                }
-
-                                it.key == Key.Enter && it.isShiftPressed && it.type == KeyEventType.KeyUp -> {
-                                    val value = vm.text.text + "\n"
-                                    vm.updateText(TextFieldValue(value, selection = TextRange(value.length)))
-                                    true
-                                }
-
-                                else -> false
-                            }
-                        },
+                        .padding(2.dp)
+                        .fillMaxWidth(),
                     trailingIcon = { IconButton(onClick = vm::send) { Icon(Icons.Default.Send, null) } },
                     label = { Text("You are: ${vm.name?.user?.name}") }
                 )
@@ -85,17 +88,19 @@ fun ApplicationScope.ChatUi(
                         border = if (it.user.name == vm.name?.user?.name) BorderStroke(1.dp, Emerald)
                         else CardDefaults.outlinedCardBorder()
                     ) {
-                        ListItem(
-                            headlineText = { Text(it.user.name) },
-                            overlineText = { Text(it.time) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            supportingText = {
-                                Column {
-                                    Divider()
-                                    Markdown(it.message)
+                        SelectionContainer {
+                            ListItem(
+                                headlineText = { Text(it.user.name) },
+                                overlineText = { Text(it.time) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                supportingText = {
+                                    Column {
+                                        Divider()
+                                        Markdown(it.message)
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
@@ -169,7 +174,7 @@ class ChatViewModel(
     fun send() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                chat.sendMessage(text.text)
+                chat.sendMessage(text.text.trim())
                 chat.isTyping(false)
             }
             hasSent = false

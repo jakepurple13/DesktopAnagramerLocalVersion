@@ -104,7 +104,7 @@ fun main() = application {
                     true
                 }
             ) {
-                androidx.compose.material3.Surface(
+                Surface(
                     shape = when (hostOs) {
                         OS.Linux -> RoundedCornerShape(8.dp)
                         OS.Windows -> RectangleShape
@@ -113,7 +113,7 @@ fun main() = application {
                     },
                     modifier = Modifier.animateContentSize()
                 ) {
-                    androidx.compose.material3.Scaffold(
+                    Scaffold(
                         topBar = {
                             Column {
                                 WindowDraggableArea(
@@ -148,7 +148,7 @@ fun main() = application {
                         },
                         containerColor = M3MaterialTheme.colorScheme.surface
                     ) { padding ->
-                        androidx.compose.material3.Surface(modifier = Modifier.padding(padding)) {
+                        Surface(modifier = Modifier.padding(padding)) {
                             App(scope, vm, snackbarHostState)
                         }
                     }
@@ -252,7 +252,7 @@ fun ApplicationScope.ShowHighScores(vm: WordViewModel) {
                     }
 
                     is Result.Error -> {
-                        androidx.compose.material3.OutlinedButton(
+                        OutlinedButton(
                             onClick = { retry++ },
                             modifier = Modifier.align(Alignment.Center)
                         ) { Text("Something went wrong. Please try again.") }
@@ -276,7 +276,7 @@ fun ApplicationScope.GameOver(vm: WordViewModel) {
                     onValueChange = { vm.name = it },
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
-                        androidx.compose.material3.IconButton(onClick = vm::sendHighScore) {
+                        IconButton(onClick = vm::sendHighScore) {
                             Icon(Icons.Default.Send, null)
                         }
                     }
@@ -314,19 +314,19 @@ fun WordContent(
         Box(
             modifier = Modifier.fillMaxWidth()
         ) {
-            androidx.compose.material3.OutlinedButton(
+            OutlinedButton(
                 onClick = vm::useHint,
                 enabled = vm.hintCount > 0,
                 modifier = Modifier.align(Alignment.CenterStart)
             ) { Text("?" + vm.hintCount.toString()) }
 
-            androidx.compose.material3.OutlinedButton(
+            OutlinedButton(
                 onClick = { vm.showScoreInfo = true },
                 enabled = vm.score > 0,
                 modifier = Modifier.align(Alignment.Center)
             ) { Text("${animateIntAsState(vm.score).value} points") }
 
-            androidx.compose.material3.OutlinedButton(
+            OutlinedButton(
                 onClick = { vm.showHighScores = true },
                 modifier = Modifier.align(Alignment.CenterEnd)
             ) { Text("View HighScores") }
@@ -412,14 +412,14 @@ fun BottomBar(
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     vm.wordGuess.forEachIndexed { index, c ->
-                        androidx.compose.material3.OutlinedButton(
+                        OutlinedButton(
                             onClick = { vm.updateGuess(vm.wordGuess.removeRange(index, index + 1)) },
                             border = BorderStroke(1.dp, M3MaterialTheme.colorScheme.primary)
                         ) { Text(c.uppercase()) }
                     }
                 }
 
-                androidx.compose.material3.OutlinedButton(
+                OutlinedButton(
                     onClick = { vm.wordGuess = "" }
                 ) { Icon(Icons.Default.Clear, null, tint = Alizarin) }
             }
@@ -431,9 +431,9 @@ fun BottomBar(
                     .animateContentSize()
                     .fillMaxWidth()
             ) {
-                val cornerSize = 16.dp
+                //val cornerSize = 16.dp
                 vm.mainLetters.forEachIndexed { index, it ->
-                    androidx.compose.material3.OutlinedButton(
+                    OutlinedButton(
                         onClick = { vm.updateGuess("${vm.wordGuess}$it") },
                         border = BorderStroke(1.dp, M3MaterialTheme.colorScheme.primary),
                         //modifier = Modifier.weight(1f),
@@ -453,15 +453,15 @@ fun BottomBar(
                     .animateContentSize()
                     .fillMaxWidth()
             ) {
-                androidx.compose.material3.OutlinedButton(
+                OutlinedButton(
                     onClick = vm::bringBackWord
                 ) { Icon(Icons.Default.Undo, null) }
 
-                androidx.compose.material3.OutlinedButton(
+                OutlinedButton(
                     onClick = vm::shuffle,
                 ) { Icon(Icons.Default.Shuffle, null) }
 
-                androidx.compose.material3.OutlinedButton(
+                OutlinedButton(
                     onClick = {
                         scope.launch {
                             val message = vm.guess {}
@@ -476,7 +476,7 @@ fun BottomBar(
                 ) {
                     Text(
                         "ENTER",
-                        color = if (vm.wordGuess.isNotEmpty()) Emerald else androidx.compose.material3.LocalContentColor.current
+                        color = if (vm.wordGuess.isNotEmpty()) Emerald else LocalContentColor.current
                     )
                 }
             }

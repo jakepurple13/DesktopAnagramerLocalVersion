@@ -29,6 +29,7 @@ kotlin {
                 implementation(compose.desktop.currentOs)
                 implementation(compose.material3)
                 implementation(compose.materialIconsExtended)
+                implementation(compose.desktop.components.animatedImage)
 
                 val ktor_version: String by project
                 implementation("io.ktor:ktor-client-core:$ktor_version")

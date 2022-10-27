@@ -5,7 +5,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.window.WindowDraggableArea
-import androidx.compose.material.Divider
 import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -36,7 +35,7 @@ fun ApplicationScope.WindowWithBar(
         transparent = true,
         onCloseRequest = onCloseRequest,
     ) {
-        androidx.compose.material3.Surface(
+        Surface(
             shape = when (hostOs) {
                 OS.Linux -> RoundedCornerShape(8.dp)
                 OS.Windows -> RectangleShape
