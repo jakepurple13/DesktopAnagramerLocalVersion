@@ -9,16 +9,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.TopAppBar
 import androidx.compose.material.darkColors
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,19 +31,16 @@ import androidx.compose.ui.awt.awtEventOrNull
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.jetbrains.skiko.OS
 import org.jetbrains.skiko.hostOs
 import java.util.*
@@ -131,7 +131,7 @@ fun main() = application {
                                         }
                                     )
                                 ) {
-                                    TopAppBar(
+                                    androidx.compose.material.TopAppBar(
                                         backgroundColor = M3MaterialTheme.colorScheme.surface,
                                         elevation = 0.dp,
                                     ) {
@@ -154,9 +154,9 @@ fun main() = application {
                     }
                 }
             }
-            if (vm.showHighScores) ShowHighScores(vm)
-            if (vm.showSubmitScore) GameOver(vm)
-            ChatUi({})
+            //if (vm.showHighScores) ShowHighScores(vm)
+            //if (vm.showSubmitScore) GameOver(vm)
+            //ChatUi({})
         }
     }
 }
@@ -176,14 +176,14 @@ fun WordUi(
     WordDialogs(vm)
 
     ModalNavigationDrawer(
-        drawerContent = { DefinitionDrawer(vm) },
+        drawerContent = { ModalDrawerSheet { DefinitionDrawer(vm) } },
         drawerState = drawerState,
         gesturesEnabled = vm.definition != null
     ) {
-        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarScrollState())
+        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
         Scaffold(
             topBar = {
-                SmallTopAppBar(
+                TopAppBar(
                     title = { Text("Guess the Words") },
                     actions = {
                         Text("${vm.wordGuesses.size}/${vm.anagramWords.size}")
@@ -237,7 +237,7 @@ fun ApplicationScope.ShowHighScores(vm: WordViewModel) {
                         LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            stickyHeader { SmallTopAppBar(title = { Text("HighScores") }) }
+                            stickyHeader { TopAppBar(title = { Text("HighScores") }) }
 
                             itemsIndexed(target.value.list) { index, item ->
                                 OutlinedCard {
@@ -265,6 +265,7 @@ fun ApplicationScope.ShowHighScores(vm: WordViewModel) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ApplicationScope.GameOver(vm: WordViewModel) {
     WindowWithBar(
@@ -427,21 +428,25 @@ fun BottomBar(
             Row(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 modifier = Modifier
-                    .height(48.dp)
+                    .height(40.dp)
                     .animateContentSize()
                     .fillMaxWidth()
             ) {
-                //val cornerSize = 16.dp
+                val cornerSize = 16.dp
                 vm.mainLetters.forEachIndexed { index, it ->
-                    OutlinedButton(
+                    OutlinedIconButton(
                         onClick = { vm.updateGuess("${vm.wordGuess}$it") },
                         border = BorderStroke(1.dp, M3MaterialTheme.colorScheme.primary),
-                        //modifier = Modifier.weight(1f),
-                        /*shape = when (index) {
+                        modifier = Modifier.weight(1f),
+                        shape = when (index) {
                             0 -> RoundedCornerShape(topStart = cornerSize, bottomStart = cornerSize)
-                            vm.mainLetters.lastIndex -> RoundedCornerShape(topEnd = cornerSize, bottomEnd = cornerSize)
+                            vm.mainLetters.lastIndex -> RoundedCornerShape(
+                                topEnd = cornerSize,
+                                bottomEnd = cornerSize
+                            )
+
                             else -> RectangleShape
-                        }*/
+                        }
                     ) { Text(it.uppercase()) }
                 }
             }
@@ -488,7 +493,7 @@ fun BottomBar(
 @Composable
 fun DefinitionDrawer(vm: WordViewModel) {
     vm.definition?.let { definition ->
-        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarScrollState())
+        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
@@ -605,7 +610,7 @@ fun WordDialogs(vm: WordViewModel) {
         )
     }
 
-    if (vm.showScoreInfo) {
+    /*if (vm.showScoreInfo) {
         AlertDialog(
             onDismissRequest = { vm.showScoreInfo = false },
             title = { Text("Score Info") },
@@ -618,7 +623,7 @@ fun WordDialogs(vm: WordViewModel) {
             },
             confirmButton = { TextButton(onClick = { vm.showScoreInfo = false }) { Text("Done") } },
         )
-    }
+    }*/
 }
 
 @Composable
