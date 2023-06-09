@@ -154,6 +154,7 @@ fun main() = application {
                     }
                 }
             }
+            NumbersGame()
             //if (vm.showHighScores) ShowHighScores(vm)
             //if (vm.showSubmitScore) GameOver(vm)
             //ChatUi({})
